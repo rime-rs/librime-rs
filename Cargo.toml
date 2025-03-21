@@ -1,0 +1,9 @@
+[package]
+edition = "2024"
+name = "rime-rs"
+version = "0.1.0"
+
+[dependencies]
+crc32fast = "1.4.2"
+libc = "0.2.171"
+regex = "1.11.1"

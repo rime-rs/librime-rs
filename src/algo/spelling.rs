@@ -1,0 +1,63 @@
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) enum SpellingType {
+    NormalSpelling,
+    FuzzySpelling,
+    Abbreviation,
+    Completion,
+    AmbiguousSpelling,
+    InvalidSpelling,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct SpellingProperties {
+    spelling_type: SpellingType,
+    end_pos: usize,
+    credibility: f64,
+    tips: String,
+}
+
+impl Default for SpellingProperties {
+    fn default() -> Self {
+        Self {
+            spelling_type: SpellingType::NormalSpelling,
+            end_pos: 0,
+            credibility: 0.0,
+            tips: String::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct Spelling {
+    str: String,
+    properties: SpellingProperties,
+}
+
+impl Spelling {
+    pub fn new(str: String) -> Self {
+        Self {
+            str,
+            properties: SpellingProperties::default(),
+        }
+    }
+}
+
+impl PartialEq for Spelling {
+    fn eq(&self, other: &Self) -> bool {
+        self.str == other.str
+    }
+}
+
+impl Eq for Spelling {}
+
+impl PartialOrd for Spelling {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.str.partial_cmp(&other.str)
+    }
+}
+
+impl Ord for Spelling {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.str.cmp(&other.str)
+    }
+}

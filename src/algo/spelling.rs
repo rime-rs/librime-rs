@@ -34,7 +34,13 @@ pub(crate) struct Spelling {
 }
 
 impl Spelling {
-    pub fn new(str: String) -> Self {
+    pub fn new() -> Self {
+        Self {
+            str: String::new(),
+            properties: SpellingProperties::default(),
+        }
+    }
+    pub fn from(str: String) -> Self {
         Self {
             str,
             properties: SpellingProperties::default(),

@@ -1,9 +1,15 @@
 [package]
+authors = ["Monine Melolaris <alpzmj9@icloud.com>"]
 edition = "2024"
-name = "rime-rs"
+license = "MPL-2.0"
+name = "rime"
+repository = "https://github.com/rime-rs/librime-rs.git"
 version = "0.1.0"
 
 [dependencies]
 crc32fast = "1.4.2"
-libc = "0.2.171"
+daachorse = "1.0.0"
+fst = "0.4.7"
+log = "0.4.26"
+petgraph = "0.7.1"
 regex = "1.11.1"

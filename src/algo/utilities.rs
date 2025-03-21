@@ -1,47 +1,50 @@
 use crc32fast::Hasher;
-use std::fs::File;
-use std::io::{self, Read};
-use std::path::Path;
+use regex::Regex;
+use std::{
+    cmp::Ordering,
+    fs::File,
+    io::{self, Read},
+    path::Path,
+};
 
-pub(crate) fn compare_version_string(x: &str, y: &str) -> i32 {
-    let mut i = 0;
-    let mut j = 0;
-    let x_parts: Vec<&str> = x.split('.').collect();
-    let y_parts: Vec<&str> = y.split('.').collect();
+pub fn compare_version_string(x: &str, y: &str) -> i32 {
+    let re = Regex::new(r"[.-]").unwrap();
+    let x_parts: Vec<&str> = re.split(x).collect();
+    let y_parts: Vec<&str> = re.split(y).collect();
 
-    while i < x_parts.len() || j < y_parts.len() {
-        let v1 = if i < x_parts.len() {
-            x_parts[i].parse::<i32>().unwrap_or(0)
-        } else {
-            0
-        };
-        let v2 = if j < y_parts.len() {
-            y_parts[j].parse::<i32>().unwrap_or(0)
-        } else {
-            0
-        };
-        if v1 > v2 {
-            return 1;
-        } else if v1 < v2 {
-            return -1;
+    for i in 0..x_parts.len().max(y_parts.len()) {
+        let x_num = x_parts.get(i).and_then(extract_leading_number).unwrap_or(0);
+        let y_num = y_parts.get(i).and_then(extract_leading_number).unwrap_or(0);
+
+        match x_num.cmp(&y_num) {
+            Ordering::Greater => return 1,
+            Ordering::Less => return -1,
+            _ => {}
         }
-        i += 1;
-        j += 1;
     }
     0
 }
 
-pub(crate) struct ChecksumComputer {
+fn extract_leading_number(s: &&str) -> Option<i32> {
+    s.chars()
+        .take_while(|c| c.is_ascii_digit())
+        .collect::<String>()
+        .parse()
+        .ok()
+}
+pub struct ChecksumComputer {
     crc: Hasher,
 }
 
-impl ChecksumComputer {
-    pub fn new(initial_remainder: u32) -> Self {
+impl From<u32> for ChecksumComputer {
+    fn from(initial_remainder: u32) -> Self {
         let mut crc = Hasher::new();
         crc.update(&[initial_remainder as u8]);
         ChecksumComputer { crc }
     }
+}
 
+impl ChecksumComputer {
     pub fn process_file(&mut self, file_path: &Path) -> io::Result<()> {
         let mut file = File::open(file_path)?;
         let mut buffer = Vec::new();
@@ -56,11 +59,8 @@ impl ChecksumComputer {
 }
 
 #[inline]
-pub(crate) fn checksum(file_path: &Path) -> u32 {
-    let mut c = ChecksumComputer::new(0);
-    if let Err(e) = c.process_file(file_path) {
-        eprintln!("Error processing file: {}", e);
-        return 0;
-    }
+pub fn checksum(file_path: &Path) -> u32 {
+    let mut c = ChecksumComputer::from(0);
+    c.process_file(file_path).expect("File processing failed");
     c.checksum()
 }

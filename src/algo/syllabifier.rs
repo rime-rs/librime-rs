@@ -1,4 +1,5 @@
 use std::{
+    cell::RefCell,
     cmp::Reverse,
     collections::{BTreeMap, BinaryHeap},
     sync::Arc,
@@ -12,21 +13,21 @@ pub type SyllableId = i32;
 
 #[derive(Clone)]
 struct EdgeProperties {
-    spelling_properties: SpellingProperties,
+    spelling_properties: RefCell<SpellingProperties>,
     is_correction: bool,
 }
 
 impl Default for EdgeProperties {
     fn default() -> Self {
         Self {
-            spelling_properties: SpellingProperties::default(),
+            spelling_properties: RefCell::default(),
             is_correction: false,
         }
     }
 }
 
 impl EdgeProperties {
-    pub(crate) fn new(spelling_properties: SpellingProperties) -> Self {
+    pub(crate) fn new(spelling_properties: RefCell<SpellingProperties>) -> Self {
         Self {
             spelling_properties,  // 使用传入的 SpellingProperties 初始化
             is_correction: false, // 默认值
@@ -176,53 +177,53 @@ impl Syllabifier {
         }
     }*/
 
-    /*
-        pub(crate) fn check_overlapped_spellings(
-            &self,
-            mut graph: Option<SyllableGraph>,
-            start: usize,
-            end: usize,
-        ) {
-            const PENALTY_FOR_AMBIGUOUS_SYLLABLE: f64 = -23.025850929940457; // log(1e-10)
+    pub(crate) fn check_overlapped_spellings(
+        &self,
+        graph: Option<SyllableGraph>,
+        start: usize,
+        end: usize,
+    ) {
+        const PENALTY_FOR_AMBIGUOUS_SYLLABLE: f64 = -23.025850929940457; // log(1e-10)
 
-            let Some(graph) = graph.as_mut() else {
-                return;
-            };
+        let Some(graph) = graph.as_ref() else {
+            return;
+        };
 
-            let Some(y_end_vertices) = graph.edges.get_mut(&start) else {
-                return;
-            };
+        let Some(y_end_vertices) = graph.edges.get(&start) else {
+            return;
+        };
 
-            // if "Z" = "YX", mark the vertex between Y and X an ambiguous syllable joint
-            // enumerate Ys
-            for (joint, _) in y_end_vertices.iter_mut() {
-                if *joint >= end {
-                    break;
-                }
+        // if "Z" = "YX", mark the vertex between Y and X an ambiguous syllable joint
+        // enumerate Ys
+        for (joint, _) in y_end_vertices.iter() {
+            if *joint >= end {
+                break;
+            }
 
-                // test X
-                if let Some(x_end_vertices) = graph.edges.get_mut(joint) {
-                    for (x_key, x_value) in x_end_vertices.iter_mut() {
-                        if x_key < &end {
-                            continue;
-                        }
-                        if x_key == &end {
-                            x_value.get_mut(&1).unwrap().spelling_properties.credibility += 1.0;
-                            // discourage syllables at an ambiguous joint
-                            // bad cases include pinyin syllabification "niju'ede"
-                            for spelling in x_value.values_mut() {
-                                spelling.spelling_properties.credibility +=
-                                    PENALTY_FOR_AMBIGUOUS_SYLLABLE;
-                            }
+            // test X
+            if let Some(x_end_vertices) = graph.edges.get(joint) {
+                for (x_key, x_value) in x_end_vertices.iter() {
+                    if x_key < &end {
+                        continue;
+                    }
+                    if x_key == &end {
+                        // discourage syllables at an ambiguous joint
+                        // bad cases include pinyin syllabification "niju'ede"
+                        for spelling in x_value.values() {
+                            spelling
+                                .spelling_properties
+                                .try_borrow_mut()
+                                .unwrap()
+                                .credibility += PENALTY_FOR_AMBIGUOUS_SYLLABLE;
                         }
                     }
                 }
             }
-
-            todo!(" 方法还没实现呢{},{}", start, end);
-            // 方法实现
         }
-    */
+
+        todo!(" 方法还没实现呢{},{}", start, end);
+        // 方法实现
+    }
 
     pub(crate) fn transpose(&self, graph: &mut SyllableGraph) {
         for (start, end_map) in &graph.edges {

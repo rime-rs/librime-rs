@@ -19,7 +19,7 @@ trait Optional {
     fn preedit(&self) -> String;
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct CommonCandidate {
     r#type: String,
     start: usize,
@@ -53,7 +53,7 @@ impl CommonCandidate {
     pub fn new() -> Self {
         CommonCandidate::default()
     }
-    fn from(r#type: &str, start: usize, end: usize, quality: f64) -> Self {
+    pub fn from(r#type: &str, start: usize, end: usize, quality: f64) -> Self {
         Self {
             r#type: String::from(r#type),
             start: start,

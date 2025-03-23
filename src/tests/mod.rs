@@ -2,6 +2,7 @@ use super::*;
 
 #[cfg(test)]
 mod algo;
+mod candidate;
 
 #[test]
 fn it_works() {

@@ -1,6 +1,6 @@
 use std::{
     cell::RefCell,
-    cmp::Reverse,
+    cmp::{Ordering, Reverse},
     collections::{BTreeMap, BinaryHeap},
     rc::Rc,
 };
@@ -177,28 +177,28 @@ impl Syllabifier {
             // test X
             if let Some(x_end_vertices) = graph.edges.get(joint) {
                 for (x_key, x_value) in x_end_vertices.iter() {
-                    if x_key < &end {
-                        continue;
-                    }
-                    if x_key == &end {
-                        // discourage syllables at an ambiguous joint
-                        // bad cases include pinyin syllabification "niju'ede"
-                        for spelling in x_value.values() {
-                            spelling.spelling_properties.borrow_mut().credibility +=
-                                PENALTY_FOR_AMBIGUOUS_SYLLABLE;
+                    match x_key.cmp(&end) {
+                        Ordering::Less => continue,
+                        Ordering::Equal => {
+                            // discourage syllables at an ambiguous joint
+                            // bad cases include pinyin syllabification "niju'ede"
+                            for spelling in x_value.values() {
+                                spelling.spelling_properties.borrow_mut().credibility +=
+                                    PENALTY_FOR_AMBIGUOUS_SYLLABLE;
+                            }
+                            graph
+                                .vertices
+                                .borrow_mut()
+                                .insert(*joint, SpellingType::AmbiguousSpelling);
+                            todo!(
+                                "DLOG(INFO) << \"ambiguous syllable joint at position \" << joint << \".\";"
+                            )
                         }
-                        graph
-                            .vertices
-                            .borrow_mut()
-                            .insert(*joint, SpellingType::AmbiguousSpelling);
+                        Ordering::Greater => break,
                     }
-                    break;
                 }
             }
         }
-
-        todo!(" 方法还没实现呢{},{}", start, end);
-        // 方法实现
     }
 
     pub(crate) fn transpose(&self, graph: &mut SyllableGraph) {

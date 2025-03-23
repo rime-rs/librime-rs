@@ -75,10 +75,10 @@ impl CommonCandidate {
         // compare quality
         let qdiff: f64 = self.quality - other.quality;
         if qdiff != 0.0 {
-            return if qdiff > 0.0 { 1 } else { -1 };
+            return if qdiff > 0.0 { -1 } else { 1 };
         }
         // draw
-        return 0;
+        0
     }
 
     // pub fn get_genuine_candidate() -> Rc<CommonCandidate> {

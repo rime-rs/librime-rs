@@ -62,15 +62,15 @@ impl CommonCandidate {
         }
     }
     pub fn compare(&self, other: Self) -> i32 {
-        let mut k = self.start - other.start;
+        let mut k: i32 = i32::try_from(self.start).unwrap() - i32::try_from(other.start).unwrap();
         // the one nearer to the beginning of segment comes first
         if k != 0 {
             return k.try_into().unwrap();
         }
         // then the longer comes first
-        k = self.end - other.end;
+        k = i32::try_from(self.end).unwrap() - i32::try_from(other.end).unwrap();
         if k != 0 {
-            return -i32::try_from(k).unwrap();
+            return -k;
         }
         // compare quality
         let qdiff: f64 = self.quality - other.quality;

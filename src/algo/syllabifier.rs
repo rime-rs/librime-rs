@@ -1,17 +1,22 @@
 use std::{
     cell::RefCell,
     cmp::{Ordering, Reverse},
-    collections::{BTreeMap, BinaryHeap},
+    collections::{BTreeMap, BinaryHeap, HashSet},
     rc::Rc,
 };
 
-use crate::dict::{corrector::Corrector, prism::Prism};
+use log::info;
+
+use crate::dict::{
+    corrector::Corrector,
+    prism::{Match, Prism},
+};
 
 use super::spelling::{SpellingProperties, SpellingType};
 
 pub type SyllableId = i32;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct EdgeProperties {
     spelling_properties: RefCell<SpellingProperties>,
     is_correction: bool,
@@ -44,6 +49,7 @@ type SpellingPropertiesList = Vec<Rc<EdgeProperties>>;
 type SpellingIndex = BTreeMap<SyllableId, SpellingPropertiesList>;
 type SpellingIndices = BTreeMap<usize, SpellingIndex>;
 
+#[derive(Debug)]
 pub struct SyllableGraph {
     input_lenth: usize,
     interpreted_length: usize,
@@ -132,9 +138,19 @@ impl Syllabifier {
             }
             if current_pos > farthest {
                 farthest = current_pos;
-                // 日志相关无法直接迁移 DLOG(INFO) << "current_pos: " << current_pos;
+                info!("current_pos: {}", current_pos);
 
                 // see where we can go by advancing a syllable
+                let matches = Vec::<Match>::new();
+                let exact_match_syllables: HashSet<SyllableId> = HashSet::new();
+                let Some(current_input) = input.get(current_pos..) else {
+                    todo!("空值处理")
+                };
+
+                // 以下无用
+                _ = matches;
+                _ = exact_match_syllables;
+                _ = current_input;
                 todo!("依赖 dict/prism {}", farthest);
             }
         }
@@ -158,22 +174,18 @@ impl Syllabifier {
         end: usize,
     ) {
         const PENALTY_FOR_AMBIGUOUS_SYLLABLE: f64 = -23.025850929940457; // log(1e-10)
-
         let Some(graph) = graph.as_ref() else {
             return;
         };
-
         let Some(y_end_vertices) = graph.edges.get(&start) else {
             return;
         };
-
         // if "Z" = "YX", mark the vertex between Y and X an ambiguous syllable joint
         // enumerate Ys
         for (joint, _) in y_end_vertices.iter() {
             if *joint >= end {
                 break;
             }
-
             // test X
             if let Some(x_end_vertices) = graph.edges.get(joint) {
                 for (x_key, x_value) in x_end_vertices.iter() {
@@ -190,9 +202,7 @@ impl Syllabifier {
                                 .vertices
                                 .borrow_mut()
                                 .insert(*joint, SpellingType::AmbiguousSpelling);
-                            todo!(
-                                "DLOG(INFO) << \"ambiguous syllable joint at position \" << joint << \".\";"
-                            )
+                            info!("ambiguous syllable joint at position {}.", joint);
                         }
                         Ordering::Greater => break,
                     }

@@ -1,3 +1,5 @@
+use daachorse::DoubleArrayAhoCorasick;
+
 use crate::algo::syllabifier::SyllableId;
 
 use super::mapped_file::List;
@@ -20,3 +22,15 @@ pub trait ToleranceSearch {
 }
 #[derive(Debug)]
 pub struct Prism;
+
+#[derive(Debug, Default)]
+pub struct Match {
+    value: usize,
+    length: usize,
+}
+
+// impl Match {
+//     fn result_pair() -> Self {
+
+//     }
+// }

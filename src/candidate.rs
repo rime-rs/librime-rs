@@ -3,7 +3,7 @@ use std::{any::Any, cmp::Ordering, rc::Rc};
 use fst::map::Values;
 use petgraph::adj::List;
 
-pub trait Candidate: Any {
+pub trait Candidates: Any {
     fn as_any(&self) -> &dyn Any; // 用于向下转换
     fn r#type(&self) -> &str;
     fn start(&self) -> usize;
@@ -20,14 +20,14 @@ trait Optional {
 }
 
 #[derive(Default, Debug)]
-pub struct CommonCandidate {
+pub struct Candidate {
     r#type: String,
     start: usize,
     end: usize,
     quality: f64,
 }
 
-impl Candidate for CommonCandidate {
+impl Candidates for Candidate {
     fn as_any(&self) -> &dyn Any {
         todo!()
     }
@@ -49,9 +49,9 @@ impl Candidate for CommonCandidate {
     }
 }
 
-impl CommonCandidate {
+impl Candidate {
     pub fn new() -> Self {
-        CommonCandidate::default()
+        Candidate::default()
     }
     pub fn from(r#type: &str, start: usize, end: usize, quality: f64) -> Self {
         Self {
@@ -61,6 +61,13 @@ impl CommonCandidate {
             quality: quality,
         }
     }
+
+    pub fn get_genuine_candidate(cadn: &mut Rc<Candidate>) -> Vec<Rc<Candidate>> {
+        let result = Vec::new();
+
+        result
+    }
+
     pub fn compare(&self, other: Self) -> i32 {
         let mut k: i32 = i32::try_from(self.start).unwrap() - i32::try_from(other.start).unwrap();
         // the one nearer to the beginning of segment comes first
@@ -81,7 +88,7 @@ impl CommonCandidate {
         0
     }
 
-    // pub fn get_genuine_candidate() -> Rc<CommonCandidate> {
+    // pub fn get_genuine_candidate() -> Rc<Candidate> {
     //     let uniquified =
     // }
 
@@ -99,13 +106,13 @@ impl CommonCandidate {
     }
 }
 
-type CandidateQueue = List<Rc<CommonCandidate>>;
-type CandidateList = Vec<Rc<CommonCandidate>>;
+type CandidateQueue = List<Rc<Candidate>>;
+type CandidateList = Vec<Rc<Candidate>>;
 
 pub struct SimpleCandidate {
     pub(crate) text: String,
     pub(crate) comment: String,
-    pub(crate) common: CommonCandidate,
+    pub(crate) common: Candidate,
     pub(crate) preedit: String,
 }
 
@@ -136,10 +143,10 @@ impl SimpleCandidate {
 }
 
 pub struct ShadowCandidate {
-    pub(crate) common: CommonCandidate,
+    pub(crate) common: Candidate,
     pub(crate) text: String,
     pub(crate) comment: String,
-    pub(crate) item: Box<dyn Candidate>,
+    // pub(crate) item: Box<dyn Candidate>,
     pub(crate) inherit_comment: bool,
 }
 

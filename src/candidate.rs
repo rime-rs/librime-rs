@@ -1,7 +1,4 @@
-use std::{any::Any, cmp::Ordering, rc::Rc};
-
-use fst::map::Values;
-use petgraph::adj::List;
+use std::any::Any;
 
 pub trait Candidates: Any {
     fn as_any(&self) -> &dyn Any; // 用于向下转换
@@ -10,14 +7,6 @@ pub trait Candidates: Any {
     fn end(&self) -> usize;
     fn quality(&self) -> f64;
 }
-trait Optional {
-    // candidate text to commit
-    fn text(&self) -> &str;
-    // (optional)
-    fn comment(&self) -> String;
-    // text shown in the preedit area, replacing input string (optional)
-    fn preedit(&self) -> String;
-}
 
 #[derive(Default, Debug)]
 pub struct Candidate {
@@ -25,28 +14,6 @@ pub struct Candidate {
     start: usize,
     end: usize,
     quality: f64,
-}
-
-impl Candidates for Candidate {
-    fn as_any(&self) -> &dyn Any {
-        todo!()
-    }
-
-    fn r#type(&self) -> &str {
-        &self.r#type
-    }
-
-    fn start(&self) -> usize {
-        self.start
-    }
-
-    fn end(&self) -> usize {
-        self.end
-    }
-
-    fn quality(&self) -> f64 {
-        self.quality
-    }
 }
 
 impl Candidate {
@@ -60,12 +27,6 @@ impl Candidate {
             end: end,
             quality: quality,
         }
-    }
-
-    pub fn get_genuine_candidate(cadn: &mut Rc<Candidate>) -> Vec<Rc<Candidate>> {
-        let result = Vec::new();
-
-        result
     }
 
     pub fn compare(&self, other: Self) -> i32 {
@@ -104,54 +65,4 @@ impl Candidate {
     pub fn quality(&mut self, quality: f64) {
         self.quality = quality;
     }
-}
-
-type CandidateQueue = List<Rc<Candidate>>;
-type CandidateList = Vec<Rc<Candidate>>;
-
-pub struct SimpleCandidate {
-    pub(crate) text: String,
-    pub(crate) comment: String,
-    pub(crate) common: Candidate,
-    pub(crate) preedit: String,
-}
-
-impl Optional for SimpleCandidate {
-    fn text(&self) -> &str {
-        &self.text
-    }
-
-    fn comment(&self) -> String {
-        self.comment.clone()
-    }
-
-    fn preedit(&self) -> String {
-        self.preedit.clone()
-    }
-}
-
-impl SimpleCandidate {
-    pub fn set_text(&mut self, text: &str) {
-        self.text = String::from(text);
-    }
-    pub fn set_comment(&mut self, comment: &str) {
-        self.comment = String::from(comment);
-    }
-    pub fn set_preedit(&mut self, preedit: &str) {
-        self.preedit = String::from(preedit);
-    }
-}
-
-pub struct ShadowCandidate {
-    pub(crate) common: Candidate,
-    pub(crate) text: String,
-    pub(crate) comment: String,
-    // pub(crate) item: Box<dyn Candidate>,
-    pub(crate) inherit_comment: bool,
-}
-
-pub struct UniquifiedCandidate {
-    pub(crate) text: String,
-    pub(crate) comment: String,
-    pub(crate) item: CandidateList,
 }

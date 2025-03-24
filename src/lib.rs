@@ -1,4 +1,3 @@
-#![allow(unused)]
 pub mod algo;
 pub mod candidate;
 pub mod dict;

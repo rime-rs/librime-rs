@@ -26,6 +26,38 @@ pub trait Candidate: Any {
     fn as_any(&self) -> &dyn Any;
 }
 
+fn unpack_shadow_candidate(cand: &An<dyn Candidate>) -> An<dyn Candidate> {
+    if let Some(shadow) = cand.as_any().downcast_ref::<ShadowCandidate>() {
+        shadow.item.clone()
+    } else {
+        cand.clone()
+    }
+}
+
+pub fn get_genuine_candidate(cand: &mut An<dyn Candidate>) -> An<dyn Candidate> {
+    if let Some(uniquified) = cand.as_any().downcast_ref::<UniquifiedCandidate>() {
+        uniquified
+            .items
+            .first()
+            .cloned()
+            .unwrap_or_else(|| cand.clone())
+    } else {
+        cand.clone()
+    }
+}
+
+pub fn get_genuine_candidates(cand: &mut An<dyn Candidate>) -> Vec<An<dyn Candidate>> {
+    let mut result = Vec::new();
+    if let Some(uniquified) = cand.as_any().downcast_ref::<UniquifiedCandidate>() {
+        for item in &uniquified.items {
+            result.push(unpack_shadow_candidate(item));
+        }
+    } else {
+        result.push(unpack_shadow_candidate(cand));
+    }
+    result
+}
+
 #[derive(Default, Debug)]
 pub struct CandidateBase {
     r#type: String,
@@ -48,30 +80,6 @@ impl From<(&str, usize, usize, Option<f64>)> for CandidateBase {
 impl CandidateBase {
     pub fn new() -> Self {
         Self::default()
-    }
-
-    pub fn get_genuine_candidate(cand: &mut An<dyn Candidate>) -> An<dyn Candidate> {
-        if let Some(uniquified) = cand.as_any().downcast_ref::<UniquifiedCandidate>() {
-            uniquified
-                .items
-                .first()
-                .cloned()
-                .unwrap_or_else(|| cand.clone())
-        } else {
-            cand.clone()
-        }
-    }
-
-    pub fn get_genuine_candidates(cand: &mut An<dyn Candidate>) -> Vec<An<dyn Candidate>> {
-        let mut result = Vec::new();
-        if let Some(uniquified) = cand.as_any().downcast_ref::<UniquifiedCandidate>() {
-            for item in &uniquified.items {
-                result.push(unpack_shadow_candidate(item));
-            }
-        } else {
-            result.push(unpack_shadow_candidate(cand));
-        }
-        result
     }
 
     pub fn compare(&self, other: Self) -> i32 {
@@ -328,13 +336,5 @@ impl UniquifiedCandidate {
         if self.quality() < item.quality() {
             self.candidate.set_quality(item.quality());
         }
-    }
-}
-
-fn unpack_shadow_candidate(cand: &An<dyn Candidate>) -> An<dyn Candidate> {
-    if let Some(shadow) = cand.as_any().downcast_ref::<ShadowCandidate>() {
-        shadow.item.clone()
-    } else {
-        cand.clone()
     }
 }

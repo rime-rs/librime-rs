@@ -1,32 +1,83 @@
 use std::any::Any;
+use std::collections::LinkedList;
+use crate::common::An;
 
-pub trait Candidates: Any {
-    fn as_any(&self) -> &dyn Any; // 用于向下转换
+pub trait Candidate: Any {
+    /// recognized by translators in learning phase
     fn r#type(&self) -> &str;
+    /// [start, end) mark a range in the input that the candidate corresponds to
     fn start(&self) -> usize;
     fn end(&self) -> usize;
     fn quality(&self) -> f64;
+
+    /// candidate text to commit
+    fn text(&self) -> &str;
+    /// (optional)
+    fn comment(&self) -> String {
+        String::new()
+    }
+    /// text shown in the preedit area, replacing input string (optional)
+    fn preedit(&self) -> String {
+        String::new()
+    }
+
+    fn as_any(&self) -> &dyn Any;
+}
+
+fn unpack_shadow_candidate(cand: &An<dyn Candidate>) -> An<dyn Candidate> {
+    if let Some(shadow) = cand.as_any().downcast_ref::<ShadowCandidate>() {
+        shadow.item.clone()
+    } else {
+        cand.clone()
+    }
+}
+
+pub fn get_genuine_candidate(cand: &mut An<dyn Candidate>) -> An<dyn Candidate> {
+    if let Some(uniquified) = cand.as_any().downcast_ref::<UniquifiedCandidate>() {
+        uniquified
+            .items
+            .first()
+            .cloned()
+            .unwrap_or_else(|| cand.clone())
+    } else {
+        cand.clone()
+    }
+}
+
+pub fn get_genuine_candidates(cand: &mut An<dyn Candidate>) -> Vec<An<dyn Candidate>> {
+    let mut result = Vec::new();
+    if let Some(uniquified) = cand.as_any().downcast_ref::<UniquifiedCandidate>() {
+        for item in &uniquified.items {
+            result.push(unpack_shadow_candidate(item));
+        }
+    } else {
+        result.push(unpack_shadow_candidate(cand));
+    }
+    result
 }
 
 #[derive(Default, Debug)]
-pub struct Candidate {
+pub struct CandidateBase {
     r#type: String,
     start: usize,
     end: usize,
     quality: f64,
 }
 
-impl Candidate {
-    pub fn new() -> Self {
-        Candidate::default()
-    }
-    pub fn from(r#type: &str, start: usize, end: usize, quality: f64) -> Self {
+impl From<(&str, usize, usize, Option<f64>)> for CandidateBase {
+    fn from((r#type, start, end, quality): (&str, usize, usize, Option<f64>)) -> Self {
         Self {
-            r#type: String::from(r#type),
-            start: start,
-            end: end,
-            quality: quality,
+            r#type: r#type.to_string(),
+            start,
+            end,
+            quality: quality.unwrap_or_default(),
         }
+    }
+}
+
+impl CandidateBase {
+    pub fn new() -> Self {
+        Self::default()
     }
 
     pub fn compare(&self, other: Self) -> i32 {
@@ -49,10 +100,6 @@ impl Candidate {
         0
     }
 
-    // pub fn get_genuine_candidate() -> Rc<Candidate> {
-    //     let uniquified =
-    // }
-
     pub fn set_type(&mut self, r#type: &str) {
         self.r#type = String::from(r#type);
     }
@@ -62,7 +109,230 @@ impl Candidate {
     pub fn set_end(&mut self, end: usize) {
         self.end = end;
     }
-    pub fn quality(&mut self, quality: f64) {
+    pub fn set_quality(&mut self, quality: f64) {
         self.quality = quality;
+    }
+}
+
+pub type CandidateQueue = LinkedList<An<CandidateBase>>;
+pub type CandidateList = Vec<An<dyn Candidate>>;
+
+// useful implementations
+
+#[derive(Debug, Default)]
+pub struct SimpleCandidate {
+    pub(crate) text: String,
+    pub(crate) comment: String,
+    pub(crate) preedit: String,
+    pub(crate) candidate: CandidateBase,
+}
+
+impl From<(&str, usize, usize, &str, Option<&str>, Option<&str>)> for SimpleCandidate {
+    fn from(
+        (r#type, start, end, text, comment, preedit): (
+            &str,
+            usize,
+            usize,
+            &str,
+            Option<&str>,
+            Option<&str>,
+        ),
+    ) -> Self {
+        Self {
+            text: text.to_string(),
+            comment: comment.unwrap_or_default().to_string(),
+            preedit: preedit.unwrap_or_default().to_string(),
+            candidate: CandidateBase::from((r#type, start, end, None)),
+        }
+    }
+}
+
+impl Candidate for SimpleCandidate {
+    fn r#type(&self) -> &str {
+        &self.candidate.r#type
+    }
+    fn start(&self) -> usize {
+        self.candidate.start
+    }
+    fn end(&self) -> usize {
+        self.candidate.end
+    }
+
+    fn quality(&self) -> f64 {
+        self.candidate.quality
+    }
+
+    fn text(&self) -> &str {
+        &self.text
+    }
+
+    fn comment(&self) -> String {
+        self.comment.to_string()
+    }
+
+    fn preedit(&self) -> String {
+        self.preedit.to_string()
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+impl SimpleCandidate {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn set_text(&mut self, text: &str) {
+        self.text = String::from(text);
+    }
+    pub fn set_comment(&mut self, comment: &str) {
+        self.comment = String::from(comment);
+    }
+    pub fn set_preedit(&mut self, preedit: &str) {
+        self.preedit = String::from(preedit);
+    }
+}
+
+pub struct ShadowCandidate {
+    pub(crate) candidate: CandidateBase,
+    pub(crate) text: String,
+    pub(crate) comment: String,
+    pub(crate) item: An<dyn Candidate>,
+    pub(crate) inherit_comment: bool,
+}
+
+impl Candidate for ShadowCandidate {
+    fn r#type(&self) -> &str {
+        &self.candidate.r#type
+    }
+
+    fn start(&self) -> usize {
+        self.candidate.start
+    }
+
+    fn end(&self) -> usize {
+        self.candidate.end
+    }
+
+    fn quality(&self) -> f64 {
+        self.candidate.quality
+    }
+
+    fn text(&self) -> &str {
+        if self.text.is_empty() {
+            self.item.text()
+        } else {
+            &self.text
+        }
+    }
+
+    fn comment(&self) -> String {
+        if self.inherit_comment && self.comment.is_empty() {
+            self.item.comment()
+        } else {
+            self.comment.clone()
+        }
+    }
+
+    fn preedit(&self) -> String {
+        self.item.preedit()
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+impl
+    From<(
+        An<dyn Candidate>,
+        &str,
+        Option<&str>,
+        Option<&str>,
+        Option<bool>,
+    )> for ShadowCandidate
+{
+    fn from(
+        (item, r#type, text, comment, inherit_comment): (
+            An<dyn Candidate>,
+            &str,
+            Option<&str>,
+            Option<&str>,
+            Option<bool>,
+        ),
+    ) -> Self {
+        Self {
+            candidate: CandidateBase::from((
+                r#type,
+                item.start(),
+                item.end(),
+                Some(item.quality()),
+            )),
+            text: text.unwrap_or_default().to_string(),
+            comment: comment.unwrap_or_default().to_string(),
+            item,
+            inherit_comment: inherit_comment.unwrap_or_default(),
+        }
+    }
+}
+
+#[derive(Default)]
+pub struct UniquifiedCandidate {
+    pub(crate) candidate: CandidateBase,
+    pub(crate) text: String,
+    pub(crate) comment: String,
+    pub(crate) items: CandidateList,
+}
+
+impl Candidate for UniquifiedCandidate {
+    fn r#type(&self) -> &str {
+        &self.candidate.r#type
+    }
+
+    fn start(&self) -> usize {
+        self.candidate.start
+    }
+
+    fn end(&self) -> usize {
+        self.candidate.end
+    }
+
+    fn quality(&self) -> f64 {
+        self.candidate.quality
+    }
+
+    fn text(&self) -> &str {
+        match (self.text.is_empty(), self.items.first()) {
+            (true, Some(item)) => item.text(),
+            _ => &self.text,
+        }
+    }
+
+    fn comment(&self) -> String {
+        match (self.comment.is_empty(), self.items.first()) {
+            (true, Some(item)) => item.comment(),
+            _ => self.comment.clone(),
+        }
+    }
+
+    fn preedit(&self) -> String {
+        self.items
+            .first()
+            .map_or_else(String::new, |item| item.preedit())
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+impl UniquifiedCandidate {
+    pub fn append(&mut self, item: An<dyn Candidate>) {
+        self.items.push(item.clone());
+        if self.quality() < item.quality() {
+            self.candidate.set_quality(item.quality());
+        }
     }
 }

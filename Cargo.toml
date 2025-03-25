@@ -13,3 +13,8 @@ fst = "0.4.7"
 log = "0.4.26"
 petgraph = "0.7.1"
 regex = "1.11.1"
+serde_yml = "0.0.12"
+tokio = {version = "1.44.1", features = ["full"]}
+
+[features]
+rime_no_threading = []

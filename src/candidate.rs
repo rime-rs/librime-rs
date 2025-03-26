@@ -3,51 +3,6 @@ use std::any::Any;
 use std::collections::LinkedList;
 
 pub trait Candidate: Any {
-    fn get_genuine_candidate(cand: &mut An<dyn Candidate>) -> An<dyn Candidate> {
-        if let Some(uniquified) = cand.as_any().downcast_ref::<UniquifiedCandidate>() {
-            uniquified
-                .items
-                .first()
-                .cloned()
-                .unwrap_or_else(|| cand.clone())
-        } else {
-            cand.clone()
-        }
-    }
-
-    fn get_genuine_candidates(cand: &mut An<dyn Candidate>) -> Vec<An<dyn Candidate>> {
-        let mut result = Vec::new();
-        if let Some(uniquified) = cand.as_any().downcast_ref::<UniquifiedCandidate>() {
-            for item in &uniquified.items {
-                result.push(unpack_shadow_candidate(item));
-            }
-        } else {
-            result.push(unpack_shadow_candidate(cand));
-        }
-        result
-    }
-
-    fn compare(&self, other: An<dyn Candidate>) -> i32 {
-        let mut k: i32 =
-            i32::try_from(self.start()).unwrap() - i32::try_from(other.start()).unwrap();
-        // the one nearer to the beginning of segment comes first
-        if k != 0 {
-            return k.try_into().unwrap();
-        }
-        // then the longer comes first
-        k = i32::try_from(self.end()).unwrap() - i32::try_from(other.end()).unwrap();
-        if k != 0 {
-            return -k;
-        }
-        // compare quality
-        let qdiff: f64 = self.quality() - other.quality();
-        if qdiff != 0.0 {
-            return if qdiff > 0.0 { -1 } else { 1 };
-        }
-        // draw
-        0
-    }
-
     /// recognized by translators in learning phase
     fn r#type(&self) -> &str;
     /// [start, end) mark a range in the input that the candidate corresponds to
@@ -56,7 +11,7 @@ pub trait Candidate: Any {
     fn quality(&self) -> f64;
 
     /// candidate text to commit
-    fn text(&self) -> &str;
+    fn text(&self) -> String;
     /// (optional)
     fn comment(&self) -> String {
         String::new()
@@ -74,8 +29,69 @@ pub trait Candidate: Any {
     fn as_any(&self) -> &dyn Any;
 }
 
+pub fn compare(selfs: An<dyn Candidate>, other: An<dyn Candidate>) -> i32 {
+    let mut k: i32 = i32::try_from(selfs.lock().unwrap().start()).unwrap()
+        - i32::try_from(other.lock().unwrap().start()).unwrap();
+    // the one nearer to the beginning of segment comes first
+    if k != 0 {
+        return k.try_into().unwrap();
+    }
+    // then the longer comes first
+    k = i32::try_from(selfs.lock().unwrap().end()).unwrap()
+        - i32::try_from(other.lock().unwrap().end()).unwrap();
+    if k != 0 {
+        return -k;
+    }
+    // compare quality
+    let qdiff: f64 = selfs.lock().unwrap().quality() - other.lock().unwrap().quality();
+    if qdiff != 0.0 {
+        return if qdiff > 0.0 { -1 } else { 1 };
+    }
+    // draw
+    0
+}
+
+pub fn get_genuine_candidate(cand: &mut An<dyn Candidate>) -> An<dyn Candidate> {
+    if let Some(uniquified) = cand
+        .lock()
+        .unwrap()
+        .as_any()
+        .downcast_ref::<UniquifiedCandidate>()
+    {
+        uniquified
+            .items
+            .first()
+            .cloned()
+            .unwrap_or_else(|| cand.clone())
+    } else {
+        cand.clone()
+    }
+}
+
+pub fn get_genuine_candidates(cand: &mut An<dyn Candidate>) -> Vec<An<dyn Candidate>> {
+    let mut result = Vec::new();
+    if let Some(uniquified) = cand
+        .lock()
+        .unwrap()
+        .as_any()
+        .downcast_ref::<UniquifiedCandidate>()
+    {
+        for item in &uniquified.items {
+            result.push(unpack_shadow_candidate(item));
+        }
+    } else {
+        result.push(unpack_shadow_candidate(cand));
+    }
+    result
+}
+
 fn unpack_shadow_candidate(cand: &An<dyn Candidate>) -> An<dyn Candidate> {
-    if let Some(shadow) = cand.as_any().downcast_ref::<ShadowCandidate>() {
+    if let Some(shadow) = cand
+        .lock()
+        .unwrap()
+        .as_any()
+        .downcast_ref::<ShadowCandidate>()
+    {
         shadow.item.clone()
     } else {
         cand.clone()
@@ -149,8 +165,8 @@ impl Candidate for SimpleCandidate {
         self.candidate.quality
     }
 
-    fn text(&self) -> &str {
-        &self.text
+    fn text(&self) -> String {
+        self.text.to_string()
     }
 
     fn comment(&self) -> String {
@@ -220,24 +236,24 @@ impl Candidate for ShadowCandidate {
         self.candidate.quality
     }
 
-    fn text(&self) -> &str {
+    fn text(&self) -> String {
         if self.text.is_empty() {
-            self.item.text()
+            self.item.lock().unwrap().text().to_string()
         } else {
-            &self.text
+            self.text.to_string()
         }
     }
 
     fn comment(&self) -> String {
         if self.inherit_comment && self.comment.is_empty() {
-            self.item.comment()
+            self.item.lock().unwrap().comment()
         } else {
             self.comment.clone()
         }
     }
 
     fn preedit(&self) -> String {
-        self.item.preedit()
+        self.item.lock().unwrap().preedit()
     }
 
     fn set_type(&mut self, r#type: &str) {
@@ -279,13 +295,13 @@ impl
         Self {
             candidate: CandidateBase::from((
                 r#type,
-                item.start(),
-                item.end(),
-                Some(item.quality()),
+                item.try_lock().as_ref().unwrap().start(),
+                item.try_lock().as_ref().unwrap().end(),
+                Some(item.try_lock().as_ref().unwrap().quality()),
             )),
             text: text.unwrap_or_default().to_string(),
             comment: comment.unwrap_or_default().to_string(),
-            item,
+            item: item.clone(),
             inherit_comment: inherit_comment.unwrap_or_default(),
         }
     }
@@ -316,16 +332,16 @@ impl Candidate for UniquifiedCandidate {
         self.candidate.quality
     }
 
-    fn text(&self) -> &str {
+    fn text(&self) -> String {
         match (self.text.is_empty(), self.items.first()) {
-            (true, Some(item)) => item.text(),
-            _ => &self.text,
+            (true, Some(item)) => item.lock().unwrap().text(),
+            _ => self.text.to_string(),
         }
     }
 
     fn comment(&self) -> String {
         match (self.comment.is_empty(), self.items.first()) {
-            (true, Some(item)) => item.comment(),
+            (true, Some(item)) => item.lock().unwrap().comment(),
             _ => self.comment.clone(),
         }
     }
@@ -333,7 +349,7 @@ impl Candidate for UniquifiedCandidate {
     fn preedit(&self) -> String {
         self.items
             .first()
-            .map_or_else(String::new, |item| item.preedit())
+            .map_or_else(String::new, |item| item.lock().unwrap().preedit())
     }
 
     fn set_type(&mut self, r#type: &str) {
@@ -357,8 +373,8 @@ impl Candidate for UniquifiedCandidate {
 impl UniquifiedCandidate {
     pub fn append(&mut self, item: An<dyn Candidate>) {
         self.items.push(item.clone());
-        if self.quality() < item.quality() {
-            self.set_quality(item.quality());
+        if self.quality() < item.lock().unwrap().quality() {
+            self.set_quality(item.lock().unwrap().quality());
         }
     }
 }

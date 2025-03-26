@@ -1,3 +1,3 @@
-use std::rc::Rc;
+use std::sync::Arc;
 
-pub type An<T> = Rc<T>;
+pub type An<T> = Arc<T>;

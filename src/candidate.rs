@@ -1,7 +1,5 @@
 use std::any::Any;
-
-use petgraph::adj::List;
-
+use std::collections::LinkedList;
 use crate::common::An;
 
 pub trait Candidate: Any {
@@ -116,7 +114,7 @@ impl CandidateBase {
     }
 }
 
-pub type CandidateQueue = List<An<CandidateBase>>;
+pub type CandidateQueue = LinkedList<An<CandidateBase>>;
 pub type CandidateList = Vec<An<dyn Candidate>>;
 
 // useful implementations
@@ -150,30 +148,30 @@ impl From<(&str, usize, usize, &str, Option<&str>, Option<&str>)> for SimpleCand
 }
 
 impl Candidate for SimpleCandidate {
-    fn text(&self) -> &str {
-        &self.text
-    }
-    fn comment(&self) -> String {
-        self.comment.to_string()
-    }
-    fn preedit(&self) -> String {
-        self.preedit.to_string()
-    }
-
     fn r#type(&self) -> &str {
         &self.candidate.r#type
     }
-
     fn start(&self) -> usize {
         self.candidate.start
     }
-
     fn end(&self) -> usize {
         self.candidate.end
     }
 
     fn quality(&self) -> f64 {
         self.candidate.quality
+    }
+
+    fn text(&self) -> &str {
+        &self.text
+    }
+
+    fn comment(&self) -> String {
+        self.comment.to_string()
+    }
+
+    fn preedit(&self) -> String {
+        self.preedit.to_string()
     }
 
     fn as_any(&self) -> &dyn Any {

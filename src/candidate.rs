@@ -3,30 +3,6 @@ use std::any::Any;
 use std::collections::LinkedList;
 
 pub trait Candidate: Any {
-    fn get_genuine_candidate(cand: &mut An<dyn Candidate>) -> An<dyn Candidate> {
-        if let Some(uniquified) = cand.as_any().downcast_ref::<UniquifiedCandidate>() {
-            uniquified
-                .items
-                .first()
-                .cloned()
-                .unwrap_or_else(|| cand.clone())
-        } else {
-            cand.clone()
-        }
-    }
-
-    fn get_genuine_candidates(cand: &mut An<dyn Candidate>) -> Vec<An<dyn Candidate>> {
-        let mut result = Vec::new();
-        if let Some(uniquified) = cand.as_any().downcast_ref::<UniquifiedCandidate>() {
-            for item in &uniquified.items {
-                result.push(unpack_shadow_candidate(item));
-            }
-        } else {
-            result.push(unpack_shadow_candidate(cand));
-        }
-        result
-    }
-
     fn compare(&self, other: An<dyn Candidate>) -> i32 {
         let mut k: i32 =
             i32::try_from(self.start()).unwrap() - i32::try_from(other.start()).unwrap();
@@ -72,6 +48,30 @@ pub trait Candidate: Any {
     fn set_quality(&mut self, quality: f64);
 
     fn as_any(&self) -> &dyn Any;
+}
+
+pub fn get_genuine_candidate(cand: &mut An<dyn Candidate>) -> An<dyn Candidate> {
+    if let Some(uniquified) = cand.as_any().downcast_ref::<UniquifiedCandidate>() {
+        uniquified
+            .items
+            .first()
+            .cloned()
+            .unwrap_or_else(|| cand.clone())
+    } else {
+        cand.clone()
+    }
+}
+
+pub fn get_genuine_candidates(cand: &mut An<dyn Candidate>) -> Vec<An<dyn Candidate>> {
+    let mut result = Vec::new();
+    if let Some(uniquified) = cand.as_any().downcast_ref::<UniquifiedCandidate>() {
+        for item in &uniquified.items {
+            result.push(unpack_shadow_candidate(item));
+        }
+    } else {
+        result.push(unpack_shadow_candidate(cand));
+    }
+    result
 }
 
 fn unpack_shadow_candidate(cand: &An<dyn Candidate>) -> An<dyn Candidate> {

@@ -1,8 +1,53 @@
+use crate::common::An;
 use std::any::Any;
 use std::collections::LinkedList;
-use crate::common::An;
 
 pub trait Candidate: Any {
+    fn get_genuine_candidate(cand: &mut An<dyn Candidate>) -> An<dyn Candidate> {
+        if let Some(uniquified) = cand.as_any().downcast_ref::<UniquifiedCandidate>() {
+            uniquified
+                .items
+                .first()
+                .cloned()
+                .unwrap_or_else(|| cand.clone())
+        } else {
+            cand.clone()
+        }
+    }
+
+    fn get_genuine_candidates(cand: &mut An<dyn Candidate>) -> Vec<An<dyn Candidate>> {
+        let mut result = Vec::new();
+        if let Some(uniquified) = cand.as_any().downcast_ref::<UniquifiedCandidate>() {
+            for item in &uniquified.items {
+                result.push(unpack_shadow_candidate(item));
+            }
+        } else {
+            result.push(unpack_shadow_candidate(cand));
+        }
+        result
+    }
+
+    fn compare(&self, other: An<dyn Candidate>) -> i32 {
+        let mut k: i32 =
+            i32::try_from(self.start()).unwrap() - i32::try_from(other.start()).unwrap();
+        // the one nearer to the beginning of segment comes first
+        if k != 0 {
+            return k.try_into().unwrap();
+        }
+        // then the longer comes first
+        k = i32::try_from(self.end()).unwrap() - i32::try_from(other.end()).unwrap();
+        if k != 0 {
+            return -k;
+        }
+        // compare quality
+        let qdiff: f64 = self.quality() - other.quality();
+        if qdiff != 0.0 {
+            return if qdiff > 0.0 { -1 } else { 1 };
+        }
+        // draw
+        0
+    }
+
     /// recognized by translators in learning phase
     fn r#type(&self) -> &str;
     /// [start, end) mark a range in the input that the candidate corresponds to
@@ -21,6 +66,11 @@ pub trait Candidate: Any {
         String::new()
     }
 
+    fn set_type(&mut self, r#type: &str);
+    fn set_start(&mut self, start: usize);
+    fn set_end(&mut self, end: usize);
+    fn set_quality(&mut self, quality: f64);
+
     fn as_any(&self) -> &dyn Any;
 }
 
@@ -30,30 +80,6 @@ fn unpack_shadow_candidate(cand: &An<dyn Candidate>) -> An<dyn Candidate> {
     } else {
         cand.clone()
     }
-}
-
-pub fn get_genuine_candidate(cand: &mut An<dyn Candidate>) -> An<dyn Candidate> {
-    if let Some(uniquified) = cand.as_any().downcast_ref::<UniquifiedCandidate>() {
-        uniquified
-            .items
-            .first()
-            .cloned()
-            .unwrap_or_else(|| cand.clone())
-    } else {
-        cand.clone()
-    }
-}
-
-pub fn get_genuine_candidates(cand: &mut An<dyn Candidate>) -> Vec<An<dyn Candidate>> {
-    let mut result = Vec::new();
-    if let Some(uniquified) = cand.as_any().downcast_ref::<UniquifiedCandidate>() {
-        for item in &uniquified.items {
-            result.push(unpack_shadow_candidate(item));
-        }
-    } else {
-        result.push(unpack_shadow_candidate(cand));
-    }
-    result
 }
 
 #[derive(Default, Debug)]
@@ -72,45 +98,6 @@ impl From<(&str, usize, usize, Option<f64>)> for CandidateBase {
             end,
             quality: quality.unwrap_or_default(),
         }
-    }
-}
-
-impl CandidateBase {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn compare(&self, other: Self) -> i32 {
-        let mut k: i32 = i32::try_from(self.start).unwrap() - i32::try_from(other.start).unwrap();
-        // the one nearer to the beginning of segment comes first
-        if k != 0 {
-            return k.try_into().unwrap();
-        }
-        // then the longer comes first
-        k = i32::try_from(self.end).unwrap() - i32::try_from(other.end).unwrap();
-        if k != 0 {
-            return -k;
-        }
-        // compare quality
-        let qdiff: f64 = self.quality - other.quality;
-        if qdiff != 0.0 {
-            return if qdiff > 0.0 { -1 } else { 1 };
-        }
-        // draw
-        0
-    }
-
-    pub fn set_type(&mut self, r#type: &str) {
-        self.r#type = String::from(r#type);
-    }
-    pub fn set_start(&mut self, start: usize) {
-        self.start = start;
-    }
-    pub fn set_end(&mut self, end: usize) {
-        self.end = end;
-    }
-    pub fn set_quality(&mut self, quality: f64) {
-        self.quality = quality;
     }
 }
 
@@ -172,6 +159,19 @@ impl Candidate for SimpleCandidate {
 
     fn preedit(&self) -> String {
         self.preedit.to_string()
+    }
+
+    fn set_type(&mut self, r#type: &str) {
+        self.candidate.r#type = String::from(r#type);
+    }
+    fn set_start(&mut self, start: usize) {
+        self.candidate.start = start;
+    }
+    fn set_end(&mut self, end: usize) {
+        self.candidate.end = end;
+    }
+    fn set_quality(&mut self, quality: f64) {
+        self.candidate.quality = quality;
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -238,6 +238,19 @@ impl Candidate for ShadowCandidate {
 
     fn preedit(&self) -> String {
         self.item.preedit()
+    }
+
+    fn set_type(&mut self, r#type: &str) {
+        self.candidate.r#type = String::from(r#type);
+    }
+    fn set_start(&mut self, start: usize) {
+        self.candidate.start = start;
+    }
+    fn set_end(&mut self, end: usize) {
+        self.candidate.end = end;
+    }
+    fn set_quality(&mut self, quality: f64) {
+        self.candidate.quality = quality;
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -323,6 +336,19 @@ impl Candidate for UniquifiedCandidate {
             .map_or_else(String::new, |item| item.preedit())
     }
 
+    fn set_type(&mut self, r#type: &str) {
+        self.candidate.r#type = String::from(r#type);
+    }
+    fn set_start(&mut self, start: usize) {
+        self.candidate.start = start;
+    }
+    fn set_end(&mut self, end: usize) {
+        self.candidate.end = end;
+    }
+    fn set_quality(&mut self, quality: f64) {
+        self.candidate.quality = quality;
+    }
+
     fn as_any(&self) -> &dyn Any {
         self
     }
@@ -332,7 +358,7 @@ impl UniquifiedCandidate {
     pub fn append(&mut self, item: An<dyn Candidate>) {
         self.items.push(item.clone());
         if self.quality() < item.quality() {
-            self.candidate.set_quality(item.quality());
+            self.set_quality(item.quality());
         }
     }
 }

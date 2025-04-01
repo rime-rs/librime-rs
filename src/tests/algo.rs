@@ -1,6 +1,12 @@
 use std::path::Path;
 
-use crate::algo::utilities::{checksum, compare_version_string};
+use crate::{
+    algo::{
+        syllabifier::{Syllabifier, SyllableGraph},
+        utilities::{checksum, compare_version_string},
+    },
+    dict::corrector::Corrector,
+};
 
 #[test]
 fn is_compare_version_string_correctly() {
@@ -21,4 +27,15 @@ fn is_check_crc_sum_correctly() {
     println!("crcsum: {} - LICENSE", checksum(Path::new("LICENSE")));
     println!("crcsum: {} - .gitignore", checksum(Path::new(".gitignore")));
     println!("crcsum: {} - README.md", checksum(Path::new("README.md")));
+}
+
+#[test]
+fn is_check_overlapped_spellings_corectly() {
+    let mut sy = Syllabifier::from((String::from("1145"), true, true));
+
+    let mut syg = SyllableGraph::default();
+    sy.enable_correction(Some(Box::new(Corrector)));
+    sy.check_overlapped_spellings(Some(&mut syg), 1, 2);
+    println!("{:?}", sy);
+    println!("{:?}", syg);
 }
